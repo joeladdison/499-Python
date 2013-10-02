@@ -35,6 +35,7 @@ class Client(object):
 
 class Game(object):
     def __init__(self):
+        self.name = None
         self.server = None
         self.players = []
         self.scores = [0, 0]
@@ -65,6 +66,7 @@ def signal_handler(signal, frame):
             game.running = False
             # Close connections
             for player in game.players:
+                player.socket.shutdown(socket.SHUT_RDWR)
                 player.socket.close()
 
     # Exit the server
@@ -103,16 +105,22 @@ def read_decks(server):
         sys.exit(7)
 
 
-def end_game(game):
+def end_game(game, player):
     if game:
+        print("Ending game: '%s'" % game.name)
         game.running = False
         # Send game over message
         send_message_to_players(game, "", message_type='O')
         # Close connections
         for p in game.players:
+            p.socket.shutdown(socket.SHUT_RDWR)
             p.socket.close()
         # Remove game from the games list
         game.server.games.remove(game)
+    elif player:
+        # Close the player socket
+        player.socket.shutdown(socket.SHUT_RDWR)
+        player.socket.close()
 
 
 def get_client_input(game, player):
@@ -129,7 +137,7 @@ def get_client_input(game, player):
         # Client has disconnected, so end the game.
         message = "%s disconnected early" % player.name
         send_message_to_players(game, message)
-        end_game(game)
+        end_game(game, player)
         return
     return data.strip()
 
@@ -156,7 +164,7 @@ def get_client_input_timeout(game, player, timeout=10):
         # Client has disconnected, so end the game.
         message = "%s disconnected early" % player.name
         send_message_to_players(game, message)
-        end_game(game)
+        end_game(game, player)
         return
     return data.strip()
 
@@ -320,7 +328,7 @@ def play_game(game):
         if (game.scores[0] > 499 or game.scores[1] < -499 or
                 game.scores[1] > 499 or game.scores[0] < -499):
             # A team has won
-            end_game(game)
+            end_game(game, None)
             break
 
         # Change to the next deck
@@ -354,6 +362,7 @@ def accept_connection(server, client):
     # Check if we need to start the game
     if len(players) == 4:
         g = Game()
+        g.name = game
         g.server = server
         g.players = sorted(players, key=lambda x: x.name)
         # Add game to list of running games
@@ -363,6 +372,7 @@ def accept_connection(server, client):
         server.pending_games.remove(game)
 
         # Start thread for game
+        print("Starting game: '%s'" % game)
         gt = GameThread(g)
         server.threads.append(gt)
         gt.start()
@@ -381,6 +391,7 @@ def start_game(server):
                 name = server.pending_games.pop()
                 game = server.pending[name]
                 for p in game:
+                    p.socket.shutdown(socket.SHUT_RDWR)
                     p.socket.close()
                 del server.pending[name]
                 continue
