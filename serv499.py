@@ -46,14 +46,12 @@ class Game(object):
 
 
 class GameThread(threading.Thread):
-    def __init__(self, server, client):
+    def __init__(self, game):
         threading.Thread.__init__(self)
-        self.server = server
-        self.client = client
+        self.game = game
 
     def run(self):
-        # play_game(self.game)
-        accept_connection(self.server, self.client)
+        play_game(self.game)
 
 
 # Global server variable, for use in signal handler.
@@ -332,10 +330,9 @@ def accept_connection(server, client):
         server.pending_games.remove(game)
 
         # Start thread for game
-        # gt = GameThread(g)
-        # server.threads.append(gt)
-        # gt.start()
-        play_game(g)
+        gt = GameThread(g)
+        server.threads.append(gt)
+        gt.start()
 
 
 def start_game(server):
@@ -354,11 +351,9 @@ def start_game(server):
                     p.socket.close()
                 del server.pending[name]
                 continue
+
         print("[%s] accepted connection" % time.ctime(), address)
-        # Start thread for game
-        gt = GameThread(server, client)
-        server.threads.append(gt)
-        gt.start()
+        accept_connection(server, client)
 
         for t in server.threads:
             t.join(0)
