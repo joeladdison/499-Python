@@ -26,11 +26,12 @@ class Server(object):
         self.threads = []
 
 
-class Client(object):
+class Player(object):
     def __init__(self):
         self.socket = None
         self.sock_file = None
         self.name = ""
+        self.hand = []
 
 
 class Game(object):
@@ -187,13 +188,11 @@ def send_message_to_players(game, message, message_type='M', skip_player=None):
 
 
 def deal_hand(game, deck):
-    hands = ['H', 'H', 'H', 'H']
-
     for i, card in enumerate(game.server.decks[deck]):
-        hands[i % 4] += card
+        game.players[i % 4].hand.append(card)
 
-    for i, p in enumerate(game.players):
-        print_to_player(hands[i], p.sock_file)
+    for p in game.players:
+        print_to_player("H%s" % ''.join(p.hand), p.sock_file)
 
 
 def get_bids(game):
@@ -209,7 +208,7 @@ def get_bids(game):
             bid_result = BID_INVALID
             while bid_result not in [BID_VALID, BID_PASS]:
                 # Read bid
-                bid = get_client_input_timeout(game, p, timeout=30)
+                bid = get_client_input_timeout(game, p, timeout=60)
                 if not game.running:
                     return
                 bid_result = valid_bid(current_bid, bid)
@@ -248,14 +247,23 @@ def play_trick(game):
             # Send play message
             print_to_player('P%s' % suit, p.sock_file)
 
-        play = get_client_input_timeout(game, p, timeout=30)
+        play = get_client_input_timeout(game, p, timeout=60)
         if not game.running:
             return -1
+        elif not valid_play(suit, play, p.hand):
+            # Invalid play, so end game
+            send_message_to_players(game, "%s played bad card" % p.name)
+            end_game(game, p)
+            return -1
+
         # Announce the play to other players
         play_message = "%s plays %s" % (p.name, play)
         send_message_to_players(game, play_message, skip_player=pid)
         # Accept the play
         print_to_player("A", p.sock_file)
+        # Remove card from player's hand
+        p.hand.remove(play)
+
         if i == 0:
             # Store lead suit
             suit = play[SUIT]
@@ -336,35 +344,40 @@ def play_game(game):
 
 
 def accept_connection(server, client):
-    c = Client()
-    c.socket = client
-    c.sock_file = c.socket.makefile(bufsize=0)
+    p = Player()
+    p.socket = client
+    p.sock_file = p.socket.makefile(bufsize=0)
 
     # Send greeting
-    print_to_player("M%s" % server.greeting, c.sock_file)
-    # Get player name
-    c.name = get_client_input_timeout(None, c)
-    if not c.name:
-        print_to_player("MInvalid player name.", c.sock_file)
-        client.close()
-        return
+    print_to_player("M%s" % server.greeting, p.sock_file)
+
     # Get game name
-    game = get_client_input_timeout(None, c)
+    game = get_client_input_timeout(None, p)
     if not game:
-        print_to_player("MInvalid game name.", c.sock_file)
-        client.close()
+        print_to_player("MInvalid game name.", p.sock_file)
+        end_game(None, p)
         return
+
+    # Get player name
+    p.name = get_client_input_timeout(None, p)
+    if not p.name:
+        print_to_player("MInvalid player name.", p.sock_file)
+        end_game(None, p)
+        return
+
+    # Add player to pending game
     players = server.pending.setdefault(game, [])
     if game not in server.pending_games:
         server.pending_games.append(game)
-    players.append(c)
+    players.append(p)
+    print("Connection: Player: '%s', Game: '%s'" % (p.name, game))
 
     # Check if we need to start the game
     if len(players) == 4:
         g = Game()
         g.name = game
         g.server = server
-        g.players = sorted(players, key=lambda x: x.name)
+        g.players = sorted(players, key=lambda x: x.name.lower())
         # Add game to list of running games
         server.games.append(g)
         # Remove from pending
