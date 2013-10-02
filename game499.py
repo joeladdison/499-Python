@@ -75,3 +75,25 @@ def rank_sort(card1, card2):
         return -1
     else:
         return 1
+
+
+def valid_play(lead, card, hand):
+    if len(card) != 2:
+            return False  # Card is incorrent length - invalid
+
+    rank, suit = card
+    if rank not in RANKS or suit not in SUITS.keys():
+        return False  # Bad rank or suit, and not a pass
+    elif card not in hand:
+        return False  # Player is trying to use a card they do not have
+
+    # Check if card matches lead suit, if player has such a card available.
+    if lead and suit != lead:
+        for card in hand:
+            if card[SUIT] == lead:
+                # Player is trying to play a card from another suit,
+                # but they still have cards of the lead suit left
+                return False
+
+    # Play is valid
+    return True

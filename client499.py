@@ -117,23 +117,11 @@ def play_card(player, lead):
 
     while True:
         move = get_user_input(prompt)
-        if len(move) != 2:
-            continue  # Move is incorrent length - invalid
-
-        rank, suit = move
-        if rank not in RANKS or suit not in SUITS.keys():
-            continue  # Bad rank or suit, and not a pass
-        elif move not in player.hand:
-            continue  # Player is trying to use a card they do not have
-        elif lead and suit != lead and player.sorted_hand.get(lead, []):
-            # Player is trying to play a card from another suit,
-            # but they still have cards of the lead suit left
-            continue
-
-        # Card is fine, so send back to server
-        send_msg(player.sock, move)
-        player.last_play = move
-        break
+        if valid_play(lead, move, player.hand):
+            # Card is fine, so send back to server
+            send_msg(player.sock, move)
+            player.last_play = move
+            break
 
 
 def receive_and_parse_message(player, expected=[]):
