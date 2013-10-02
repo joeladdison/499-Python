@@ -6,6 +6,7 @@ import signal
 import threading
 import errno
 import time
+import select
 
 from game499 import *
 
@@ -62,6 +63,11 @@ def signal_handler(signal, frame):
     if server:
         for game in server.games:
             game.running = False
+            # Close connections
+            for player in game.players:
+                player.socket.close()
+
+    # Exit the server
     sys.exit(0)
 
 
@@ -128,6 +134,33 @@ def get_client_input(game, player):
     return data.strip()
 
 
+def get_client_input_timeout(game, player, timeout=10):
+    client_error = False
+    try:
+        rlist, _, _ = select.select([player.sock_file], [], [], timeout)
+        if rlist:
+            data = player.sock_file.readline()
+        else:
+            # Timeout
+            client_error = True
+            print_to_player("MSorry, too slow.", player.sock_file)
+            print("Kicked player due to read timeout.")
+    except socket.error:
+        client_error = True
+    except MemoryError:
+        client_error = True
+        print_to_player("MNo thanks, I think that's too big", player.sock_file)
+        print("Kicked player due to memory use.")
+
+    if client_error or not data:
+        # Client has disconnected, so end the game.
+        message = "%s disconnected early" % player.name
+        send_message_to_players(game, message)
+        end_game(game)
+        return
+    return data.strip()
+
+
 def print_to_player(message, socket_file):
     try:
         print(message, file=socket_file)
@@ -168,7 +201,7 @@ def get_bids(game):
             bid_result = BID_INVALID
             while bid_result not in [BID_VALID, BID_PASS]:
                 # Read bid
-                bid = get_client_input(game, p)
+                bid = get_client_input_timeout(game, p, timeout=30)
                 if not game.running:
                     return
                 bid_result = valid_bid(current_bid, bid)
@@ -207,7 +240,7 @@ def play_trick(game):
             # Send play message
             print_to_player('P%s' % suit, p.sock_file)
 
-        play = get_client_input(game, p)
+        play = get_client_input_timeout(game, p, timeout=30)
         if not game.running:
             return -1
         # Announce the play to other players
@@ -297,18 +330,18 @@ def play_game(game):
 def accept_connection(server, client):
     c = Client()
     c.socket = client
-    c.sock_file = c.socket.makefile()
+    c.sock_file = c.socket.makefile(bufsize=0)
 
     # Send greeting
     print_to_player("M%s" % server.greeting, c.sock_file)
     # Get player name
-    c.name = get_client_input(None, c)
+    c.name = get_client_input_timeout(None, c)
     if not c.name:
         print_to_player("MInvalid player name.", c.sock_file)
         client.close()
         return
     # Get game name
-    game = get_client_input(None, c)
+    game = get_client_input_timeout(None, c)
     if not game:
         print_to_player("MInvalid game name.", c.sock_file)
         client.close()
