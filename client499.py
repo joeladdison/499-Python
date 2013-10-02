@@ -57,10 +57,10 @@ def recv_msg(sock_file):
 def initialise_game(player):
     # Wait for greeting
     receive_and_parse_message(player, ['M'])
-    # Send player name
-    send_msg(player.sock, player.player_name)
     # Send game name
     send_msg(player.sock, player.game_name)
+    # Send player name
+    send_msg(player.sock, player.player_name)
 
 
 def sort_hand(player, hand):
