@@ -63,12 +63,14 @@ server = None
 
 def signal_handler(signal, frame):
     if server:
+        # End running games
         for game in server.games:
             game.running = False
             # Close connections
-            for player in game.players:
-                player.socket.shutdown(socket.SHUT_RDWR)
-                player.socket.close()
+            for p in game.players:
+                close_player(p)
+
+        # Close pending games
 
     # Exit the server
     sys.exit(0)
@@ -106,22 +108,32 @@ def read_decks(server):
         sys.exit(7)
 
 
-def end_game(game, player):
-    if game:
-        print("Ending game: '%s'" % game.name)
-        game.running = False
-        # Send game over message
-        send_message_to_players(game, "", message_type='O')
-        # Close connections
-        for p in game.players:
-            p.socket.shutdown(socket.SHUT_RDWR)
-            p.socket.close()
-        # Remove game from the games list
-        game.server.games.remove(game)
-    elif player:
+def close_player(player):
+    print("Closing player: '%s'" % player.name)
+    try:
+        # Close the player socket file
+        if player.sock_file:
+            player.sock_file.close()
+
         # Close the player socket
-        player.socket.shutdown(socket.SHUT_RDWR)
-        player.socket.close()
+        if player.socket:
+            player.socket.shutdown(socket.SHUT_RDWR)
+            player.socket.close()
+    except socket.error:
+        # Don't care, we were closing connection anyway
+        pass
+
+
+def end_game(game):
+    print("Ending game: '%s'" % game.name)
+    game.running = False
+    # Send game over message
+    send_message_to_players(game, "", message_type='O')
+    # Close connections
+    for p in game.players:
+        close_player(p)
+    # Remove game from the games list
+    game.server.games.remove(game)
 
 
 def get_client_input(game, player):
@@ -134,11 +146,13 @@ def get_client_input(game, player):
         client_error = True
         print_to_player("MNo thanks, I think that's too big", player.sock_file)
         print("Kicked player due to memory use.")
+
     if client_error or not data:
         # Client has disconnected, so end the game.
-        message = "%s disconnected early" % player.name
-        send_message_to_players(game, message)
-        end_game(game, player)
+        if game:
+            message = "%s disconnected early" % player.name
+            send_message_to_players(game, message)
+            game.running = False
         return
     return data.strip()
 
@@ -162,21 +176,23 @@ def get_client_input_timeout(game, player, timeout=10):
         print("Kicked player due to memory use.")
 
     if client_error or not data:
-        # Client has disconnected, so end the game.
-        message = "%s disconnected early" % player.name
-        send_message_to_players(game, message)
-        end_game(game, player)
+        # Client has disconnected during game, so end the game.
+        if game:
+            message = "%s disconnected early" % player.name
+            send_message_to_players(game, message)
+            game.running = False
         return
     return data.strip()
 
 
 def print_to_player(message, socket_file):
-    try:
-        print(message, file=socket_file)
-        socket_file.flush()
-    except socket.error:
-        # We do not care about Broken Pipes at this stage
-        pass
+    if socket_file:
+        try:
+            print(message, file=socket_file)
+            socket_file.flush()
+        except (socket.error, AttributeError):
+            # We do not care about Broken Pipes at this stage
+            pass
 
 
 def send_message_to_players(game, message, message_type='M', skip_player=None):
@@ -253,7 +269,7 @@ def play_trick(game):
         elif not valid_play(suit, play, p.hand):
             # Invalid play, so end game
             send_message_to_players(game, "%s played bad card" % p.name)
-            end_game(game, p)
+            game.running = False
             return -1
 
         # Announce the play to other players
@@ -330,17 +346,19 @@ def play_game(game):
     while game.running:
         play_hand(game)
         if not game.running:
-            return
+            break
 
         # Check for winner
         if (game.scores[0] > 499 or game.scores[1] < -499 or
                 game.scores[1] > 499 or game.scores[0] < -499):
             # A team has won
-            end_game(game, None)
             break
 
         # Change to the next deck
         game.deck = (game.deck + 1) % len(game.server.decks)
+
+    # Finish game
+    end_game(game)
 
 
 def accept_connection(server, client):
@@ -355,14 +373,14 @@ def accept_connection(server, client):
     game = get_client_input_timeout(None, p)
     if not game:
         print_to_player("MInvalid game name.", p.sock_file)
-        end_game(None, p)
+        close_player(p)
         return
 
     # Get player name
     p.name = get_client_input_timeout(None, p)
     if not p.name:
         print_to_player("MInvalid player name.", p.sock_file)
-        end_game(None, p)
+        close_player(p)
         return
 
     # Add player to pending game
@@ -404,8 +422,7 @@ def start_game(server):
                 name = server.pending_games.pop()
                 game = server.pending[name]
                 for p in game:
-                    p.socket.shutdown(socket.SHUT_RDWR)
-                    p.socket.close()
+                    close_player(p)
                 del server.pending[name]
                 continue
 
