@@ -97,10 +97,23 @@ def read_decks(server):
     for line in server.deck_file.readlines():
         line_count += 1
         line = line.rstrip()  # Strip newline character
+
+        # Check that there are enough cards in the deck
         if len(line) != 104:
             error = True
             break
+
         all_cards = [line[i] + line[i + 1] for i in range(0, len(line), 2)]
+
+        # Check all cards are valid
+        for card in all_cards:
+            if card[SUIT] not in SUITS or card[RANK] not in RANKS:
+                error = True
+                break
+        if error:
+            break
+
+        # Deck is fine, so add to list of decks
         server.decks.append(all_cards)
 
     if error or line_count == 0:
