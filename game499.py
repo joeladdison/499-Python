@@ -20,7 +20,7 @@ BID_VALID = 1
 BID_PASS = 2
 
 # Bid min and max
-MIN_BID = 2
+MIN_BID = 4
 MAX_BID = 9
 
 
