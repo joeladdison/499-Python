@@ -355,17 +355,17 @@ def accept_connection(server, client):
     # Send greeting
     print_to_player("M%s" % server.greeting, p.sock_file)
 
-    # Get game name
-    game = get_client_input_timeout(None, p)
-    if not game:
-        print_to_player("MInvalid game name.", p.sock_file)
-        close_player(p)
-        return
-
     # Get player name
     p.name = get_client_input_timeout(None, p)
     if not p.name:
         print_to_player("MInvalid player name.", p.sock_file)
+        close_player(p)
+        return
+
+    # Get game name
+    game = get_client_input_timeout(None, p)
+    if not game:
+        print_to_player("MInvalid game name.", p.sock_file)
         close_player(p)
         return
 
