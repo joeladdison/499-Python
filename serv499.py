@@ -104,8 +104,8 @@ def read_decks(server):
         server.decks.append(all_cards)
 
     if error or line_count == 0:
-        print("Bad deck", file=sys.stderr)
-        sys.exit(7)
+        print("Deck Error", file=sys.stderr)
+        sys.exit(6)
 
 
 def close_player(player):
@@ -440,7 +440,7 @@ def main():
     try:
         server.deck_file = open(sys.argv[3], "r")
     except IOError:
-        print("Unable to read deck", file=sys.stderr)
+        print("Deck Error", file=sys.stderr)
         sys.exit(6)
 
     read_decks(server)
