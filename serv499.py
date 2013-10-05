@@ -136,29 +136,9 @@ def end_game(game):
     game.server.games.remove(game)
 
 
-def get_client_input(game, player):
-    client_error = False
-    try:
-        data = player.sock_file.readline()
-    except socket.error:
-        client_error = True
-    except MemoryError:
-        client_error = True
-        print_to_player("MNo thanks, I think that's too big", player.sock_file)
-        print("Kicked player due to memory use.")
-
-    if client_error or not data:
-        # Client has disconnected, so end the game.
-        if game:
-            message = "%s disconnected early" % player.name
-            send_message_to_players(game, message)
-            game.running = False
-        return
-    return data.strip()
-
-
 def get_client_input_timeout(game, player, timeout=10):
     client_error = False
+    data = ''
     try:
         rlist, _, _ = select.select([player.sock_file], [], [], timeout)
         if rlist:
@@ -220,9 +200,10 @@ def get_bids(game):
             if len(eligible) == 1:
                 break
             p = game.players[i]
-            print_to_player("B%s" % current_bid, p.sock_file)
+
             bid_result = BID_INVALID
             while bid_result not in [BID_VALID, BID_PASS]:
+                print_to_player("B%s" % current_bid, p.sock_file)
                 # Read bid
                 bid = get_client_input_timeout(game, p, timeout=60)
                 if not game.running:
@@ -256,37 +237,42 @@ def play_trick(game):
     for i in range(4):
         pid = current % 4
         p = game.players[pid]
-        if i == 0:
-            # Send lead message
-            print_to_player('L', p.sock_file)
-        else:
-            # Send play message
-            print_to_player('P%s' % suit, p.sock_file)
 
-        play = get_client_input_timeout(game, p, timeout=60)
-        if not game.running:
-            return -1
-        elif not valid_play(suit, play, p.hand):
-            # Invalid play, so end game
-            send_message_to_players(game, "%s played bad card" % p.name)
-            game.running = False
-            return -1
+        valid = False
+        while not valid:
+            if i == 0:
+                # Send lead message
+                print_to_player('L', p.sock_file)
+            else:
+                # Send play message
+                print_to_player('P%s' % suit, p.sock_file)
 
-        # Announce the play to other players
-        play_message = "%s plays %s" % (p.name, play)
-        send_message_to_players(game, play_message, skip_player=pid)
-        # Accept the play
-        print_to_player("A", p.sock_file)
-        # Remove card from player's hand
-        p.hand.remove(play)
+            play = get_client_input_timeout(game, p, timeout=60)
+            print("play", p.name, i, "'%s'" % play)
+            if not game.running:
+                print("play:", play)
+                return -1
 
-        if i == 0:
-            # Store lead suit
-            suit = play[SUIT]
-        if higher_card(play, winning_card, suit, game.trumps):
-            winning_card = play
-            winning_player = pid
-        current += 1
+            valid = valid_play(suit, play, p.hand)
+            if not valid:
+                # Invalid play, so ask for another play
+                continue
+
+            # Announce the play to other players
+            play_message = "%s plays %s" % (p.name, play)
+            send_message_to_players(game, play_message, skip_player=pid)
+            # Accept the play
+            print_to_player("A", p.sock_file)
+            # Remove card from player's hand
+            p.hand.remove(play)
+
+            if i == 0:
+                # Store lead suit
+                suit = play[SUIT]
+            if higher_card(play, winning_card, suit, game.trumps):
+                winning_card = play
+                winning_player = pid
+            current += 1
 
     # Inform players the trick is finished.
     send_message_to_players(game,
