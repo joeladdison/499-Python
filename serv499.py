@@ -288,8 +288,7 @@ def play_trick(game):
             current += 1
 
     # Inform players the trick is finished.
-    send_message_to_players(game,
-            "Trick won by %s" % game.players[winning_player].name)
+    send_message_to_players(game, "%s won" % game.players[winning_player].name)
 
     # Update the winning player to be the new lead
     game.lead_player = winning_player
@@ -348,9 +347,13 @@ def play_game(game):
             break
 
         # Check for winner
-        if (game.scores[0] > 499 or game.scores[1] < -499 or
-                game.scores[1] > 499 or game.scores[0] < -499):
-            # A team has won
+        if game.scores[0] > 499 or game.scores[1] < -499:
+            # Team 1 won
+            send_message_to_players(game, "Winner is Team 1")
+            break
+        elif game.scores[1] > 499 or game.scores[0] < -499:
+            # Team 2 won
+            send_message_to_players(game, "Winner is Team 2")
             break
 
         # Change to the next deck
