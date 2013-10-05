@@ -110,7 +110,6 @@ def make_bid(player, current):
 
 
 def play_card(player, lead):
-    print_hand(player)
     prompt = "Lead>"
     if lead:
         prompt = "[%s] play>" % lead
