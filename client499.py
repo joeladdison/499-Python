@@ -133,7 +133,7 @@ def receive_and_parse_message(player, expected=[]):
 
     if message[0] == 'M':
         # Chat message
-        print("Chat: %s" % message[1:])
+        print("Info: %s" % message[1:])
         if 'M' not in expected:
             return True
     elif message[0] == 'H':
