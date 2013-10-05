@@ -195,9 +195,9 @@ def get_bids(game):
     eligible = range(4)
     current_bid = ""
     winning_player = None
-    while len(eligible) > 1:
+    while len(eligible) > 1 and current_bid != "9H":
         for i in eligible[:]:
-            if len(eligible) == 1:
+            if len(eligible) == 1 or current_bid == "9H":
                 break
             p = game.players[i]
 
