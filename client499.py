@@ -28,7 +28,7 @@ def connect_to_server(port, hostname):
         sock.connect((hostname, port))
     except socket.error:
         print("Bad Server.", file=sys.stderr)
-        sys.exit(5)
+        sys.exit(2)
     return sock
 
 
@@ -38,8 +38,8 @@ def send_msg(sock, message, add_newline=True):
     try:
         sock.sendall(message)
     except socket.error:
-        print("Connection Lost", file=sys.stderr)
-        sys.exit(10)
+        print("Protocol Error.", file=sys.stderr)
+        sys.exit(6)
 
 
 def recv_msg(sock_file):
@@ -49,8 +49,8 @@ def recv_msg(sock_file):
     except socket.error:
         server_error = True
     if server_error or not data:
-        print("Connection Lost", file=sys.stderr)
-        sys.exit(10)
+        print("Protocol Error.", file=sys.stderr)
+        sys.exit(6)
     return data.strip()
 
 
@@ -88,8 +88,8 @@ def get_user_input(prompt):
     try:
         response = raw_input(prompt)
     except EOFError:
-        # TODO: Check exit code
-        sys.exit(0)
+        print("User Quit.", file=sys.stderr)
+        sys.exit(7)
     return response
 
 
@@ -128,11 +128,9 @@ def receive_and_parse_message(player, expected=[]):
     message = recv_msg(player.sock_file)
     extended_expected = expected + ['M', 'O']
     if not message or (expected and message[0] not in extended_expected):
-        # TODO: Check this
-        print(expected, message)
-        print("something went wrong with message", file=sys.stderr)
-        sys.exit(99)
-    # try:
+        print("Protocol Error.", file=sys.stderr)
+        sys.exit(6)
+
     if message[0] == 'M':
         # Chat message
         print("Chat: %s" % message[1:])
@@ -154,12 +152,10 @@ def receive_and_parse_message(player, expected=[]):
         player.made_bid = True
     elif message[0] == 'O':
         # Game over
+        player.sock.shutdown(socket.SHUT_RDWR)
         player.sock.close()
         sys.exit(0)
-    # except Exception, e:
-    #     raise e
-    #     print("bad things", file=sys.stderr)
-    #     sys.exit(99)
+
     return False
 
 
