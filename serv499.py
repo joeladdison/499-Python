@@ -12,6 +12,7 @@ from game499 import *
 
 BACKLOG = 5
 
+HOSTNAME = ''
 
 class Server(object):
     def __init__(self):
@@ -80,7 +81,7 @@ def create_server(port):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('localhost', port))
+        s.bind((HOSTNAME, port))
         s.listen(BACKLOG)
     except socket.error:
         if s:
