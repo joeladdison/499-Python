@@ -465,7 +465,11 @@ def main():
         print("Usage: serv499 port greeting deck", file=sys.stderr)
         sys.exit(1)
 
-    port = int(sys.argv[1])
+    try:
+        port = int(sys.argv[1])
+    except ValueError:
+        port = 0
+
     if port < 1 or port > 65535:
         print("Invalid Port", file=sys.stderr)
         sys.exit(4)
