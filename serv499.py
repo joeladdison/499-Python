@@ -7,12 +7,13 @@ import threading
 import errno
 import time
 import select
+import datetime
 
 from game499 import *
 
 BACKLOG = 5
-
 HOSTNAME = ''
+PENDING_TIMEOUT = datetime.timedelta(minutes=10)
 
 class Server(object):
     def __init__(self):
@@ -47,6 +48,7 @@ class Game(object):
         self.trumps = ""
         self.bid_team = None
         self.running = True
+        self.start_time = None
 
 
 class GameThread(threading.Thread):
@@ -380,34 +382,35 @@ def accept_connection(server, client):
         return
 
     # Get game name
-    game = get_client_input_timeout(None, p)
-    if not game:
+    game_name = get_client_input_timeout(None, p)
+    if not game_name:
         print_to_player("MInvalid game name.", p.sock_file)
         close_player(p)
         return
 
     # Add player to pending game
-    players = server.pending.setdefault(game, [])
-    if game not in server.pending_games:
-        server.pending_games.append(game)
-    players.append(p)
-    print("Connection: Player: '%s', Game: '%s'" % (p.name, game))
+    game = server.pending.setdefault(game_name, Game())
+    if game_name not in server.pending_games:
+        server.pending_games.append(game_name)
+        game.name = game_name
+    game.players.append(p)
+    game.start_time = datetime.datetime.now()
+    print("Connection: Player: '%s', Game: '%s'" % (p.name, game_name))
 
     # Check if we need to start the game
-    if len(players) == 4:
-        g = Game()
-        g.name = game
-        g.server = server
-        g.players = sorted(players, key=lambda x: x.name.lower())
+    if len(game.players) == 4:
+        game.server = server
+        game.players = sorted(game.players, key=lambda x: x.name)
+        #game.players = sorted(game.players, key=lambda x: x.name.lower())
         # Add game to list of running games
-        server.games.append(g)
+        server.games.append(game)
         # Remove from pending
-        del server.pending[game]
-        server.pending_games.remove(game)
+        del server.pending[game.name]
+        server.pending_games.remove(game.name)
 
         # Start thread for game
-        print("Starting game: '%s'" % game)
-        gt = GameThread(g)
+        print("Starting game: '%s'" % game.name)
+        gt = GameThread(game)
         server.threads.append(gt)
         gt.start()
 
@@ -424,7 +427,7 @@ def start_game(server):
                 print("Removing pending game due to hitting file limit")
                 name = server.pending_games.pop()
                 game = server.pending[name]
-                for p in game:
+                for p in game.players:
                     close_player(p)
                 del server.pending[name]
                 continue
@@ -432,6 +435,16 @@ def start_game(server):
         print("[%s] accepted connection" % time.ctime(), address)
         accept_connection(server, client)
 
+        # Clean up old pending games
+        now = datetime.datetime.now()
+        for game_name in server.pending_games[:]:
+            g = server.pending[game_name]
+            if g.start_time + PENDING_TIMEOUT < now:
+                 print("Removing pending game '%s' due to timeout" % g.name)
+                 server.pending_games.remove(game_name)
+                 del server.pending[game_name]
+
+        # Clean up threads
         for t in server.threads:
             t.join(0)
             if not t.is_alive():
