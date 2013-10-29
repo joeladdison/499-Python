@@ -88,7 +88,7 @@ def create_server(port):
     except socket.error:
         if s:
             s.close()
-        print("Port error", file=sys.stderr)
+        print("Port Error", file=sys.stderr)
         sys.exit(5)
     return s
 
