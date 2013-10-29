@@ -151,8 +151,11 @@ def receive_and_parse_message(player, expected=[]):
         player.made_bid = True
     elif message[0] == 'O':
         # Game over
-        player.sock.shutdown(socket.SHUT_RDWR)
-        player.sock.close()
+        try:
+            player.sock.shutdown(socket.SHUT_RDWR)
+            player.sock.close()
+        except socket.error:
+            pass
         sys.exit(0)
 
     return False
