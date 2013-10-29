@@ -185,7 +185,10 @@ def main():
 
     player_name = sys.argv[1]
     game_name = sys.argv[2]
-    port = int(sys.argv[3])
+    try:
+        port = int(sys.argv[3])
+    except ValueError:
+        port = 0
     hostname = "localhost"
     if len(sys.argv) == 5:
         hostname = sys.argv[4]
