@@ -14,6 +14,8 @@ from game499 import *
 BACKLOG = 5
 HOSTNAME = ''
 PENDING_TIMEOUT = datetime.timedelta(minutes=10)
+MAX_INPUT = 64 * 1024
+
 
 class Server(object):
     def __init__(self):
@@ -154,11 +156,12 @@ def end_game(game):
 
 def get_client_input_timeout(game, player, timeout=10):
     client_error = False
+    memory_error = False
     data = ''
     try:
         rlist, _, _ = select.select([player.sock_file], [], [], timeout)
         if rlist:
-            data = player.sock_file.readline()
+            data = player.sock_file.readline(MAX_INPUT)
         else:
             # Timeout
             client_error = True
@@ -167,6 +170,9 @@ def get_client_input_timeout(game, player, timeout=10):
     except socket.error:
         client_error = True
     except MemoryError:
+        memory_error = True
+
+    if memory_error or len(data) >= (MAX_INPUT):
         client_error = True
         print_to_player("MNo thanks, I think that's too big", player.sock_file)
         print("Kicked player due to memory use.")
