@@ -81,7 +81,11 @@ def sort_hand(player, hand):
 
 def print_hand(player):
     for suit, cards in sorted(player.sorted_hand.items(), key=lambda x: SUITS[x[0]]):
-        print("%s: %s" % (suit, " ".join(cards)))
+        suit_cards = [r for r, _ in cards]
+        if suit_cards:
+            print("%s: %s" % (suit, " ".join(suit_cards)))
+        else:
+            print("%s:" % suit)
 
 
 def get_user_input(prompt):
@@ -97,9 +101,9 @@ def make_bid(player, current):
     # Build prompt for bid
     prompt = ""
     if current:
-        prompt = "[%s] - Bid (or pass)>" % current
+        prompt = "[%s] - Bid (or pass)> " % current
     else:
-        prompt = "Bid>"
+        prompt = "Bid> "
 
     # Get bid from user
     while True:
@@ -110,11 +114,12 @@ def make_bid(player, current):
 
 
 def play_card(player, lead):
-    prompt = "Lead>"
+    prompt = "Lead> "
     if lead:
-        prompt = "[%s] play>" % lead
+        prompt = "[%s] play> " % lead
 
     while True:
+        print_hand(player)
         move = get_user_input(prompt)
         if valid_play(lead, move, player.hand):
             # Card is fine, so send back to server
