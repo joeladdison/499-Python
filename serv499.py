@@ -308,7 +308,8 @@ def play_trick(game):
 
 def play_hand(game):
     # Deal hand
-    deal_hand(game, 0)
+    deal_hand(game, game.deck)
+
     # Get bids and inform everyone of trumps
     get_bids(game)
     if not game.running:
