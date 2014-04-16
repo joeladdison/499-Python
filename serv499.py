@@ -475,9 +475,9 @@ def start_game(server):
         for game_name in server.pending_games[:]:
             g = server.pending[game_name]
             if g.start_time + PENDING_TIMEOUT < now:
-                 print("Removing pending game '%s' due to timeout" % g.name)
-                 server.pending_games.remove(game_name)
-                 del server.pending[game_name]
+                print("Removing pending game '%s' due to timeout" % g.name)
+                server.pending_games.remove(game_name)
+                del server.pending[game_name]
 
         # Clean up threads
         for t in server.threads:
